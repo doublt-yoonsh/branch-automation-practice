@@ -146,9 +146,8 @@ jobs:
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `[Backmerge] main → dev 충돌 해결 필요 (PR #${prNumber})`,
+              title: '[Backmerge] main -> dev 충돌 해결 필요 (PR #' + prNumber + ')',
               body: issueBody,
-              assignees: userList,
               labels: ['backmerge']
             });
 

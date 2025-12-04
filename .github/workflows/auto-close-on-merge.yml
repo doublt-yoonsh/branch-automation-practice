@@ -63,9 +63,69 @@ jobs:
                   repo: context.repo.repo,
                   ref: `heads/${sourceBranch}`
                 });
-            
+
                 console.log(`Deleted branch: ${sourceBranch}`);
               } catch (error) {
                 console.error(`Failed to delete branch ${sourceBranch}:`, error);
               }
             }
+
+  backmerge:
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    needs: auto-close
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Backmerge main to dev
+        id: backmerge
+        run: |
+          git checkout dev
+          git pull origin dev
+
+          if git merge origin/main --no-edit; then
+            git push origin dev
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            git merge --abort
+            echo "status=conflict" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on conflict
+        if: steps.backmerge.outputs.status == 'conflict'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `⚠️ **백머지 실패**: \`main\` → \`dev\` 백머지 중 충돌이 발생했습니다.\n\n수동으로 백머지를 진행해주세요:\n\`\`\`bash\ngit checkout dev\ngit pull origin dev\ngit merge origin/main\n# 충돌 해결 후\ngit push origin dev\n\`\`\``
+            });
+
+      - name: Comment on success
+        if: steps.backmerge.outputs.status == 'success'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `✅ **백머지 완료**: \`main\` → \`dev\` 백머지가 자동으로 완료되었습니다.`
+            });

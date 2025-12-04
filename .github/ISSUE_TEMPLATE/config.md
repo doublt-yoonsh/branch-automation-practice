@@ -10,7 +10,7 @@ assignees: ''
 > **설정 작업 안내**
 > - CI/CD, 배포 관련 설정 작업에 사용해주세요.
 > - `main` 브랜치에서 `config/{이슈번호}` 브랜치가 생성됩니다.
-> - 머지 후 `main` → `dev` 백머지가 필요합니다.
+> - 머지 후 `main` → `dev` 백머지가 자동으로 진행됩니다.
 
 ### 작업 유형
 - [ ] CI (Continuous Integration)

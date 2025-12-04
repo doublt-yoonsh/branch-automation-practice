@@ -1,5 +1,5 @@
 ---
-name: 기능 개발 (Feature)
+name: 기능 개발 (feature)
 about: 새로운 화면/기능 개발
 title: 'feat(영역): '
 labels: ":sparkles: feat"
@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-### 작업 예정 내용
+### 작업 내용
 -
 
 ### 화면 예시
@@ -17,5 +17,4 @@ assignees: ''
 - [ ] 조건 1
 - [ ] 조건 2
 
-### 추가 정보
-(기타 참고사항)
+### 구현 화면

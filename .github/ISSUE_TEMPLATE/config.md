@@ -2,7 +2,7 @@
 name: 설정 작업 (Config)
 about: CI/CD, 배포 설정 작업
 title: 'ci: '
-labels: "✅ ci"
+labels: ":checkbox: ci"
 assignees: ''
 
 ---
@@ -17,11 +17,11 @@ assignees: ''
 - [ ] CD (Continuous Deployment)
 - [ ] 기타 설정
 
-### 작업 예정 내용
+### 작업 내용
 -
 
 ### 작업 이유
 (이 설정 작업이 필요한 이유)
 
-### 추가 정보
+### 작업 결과
 (참고할 문서나 기타 정보)

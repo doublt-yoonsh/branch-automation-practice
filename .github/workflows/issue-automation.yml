@@ -53,7 +53,18 @@ jobs:
             });
             
             console.log(`Created branch: ${branchName} from ${baseBranch}`);
-            
+
+            // Assign issue creator as assignee
+            const issueCreator = context.payload.issue.user.login;
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              assignees: [issueCreator]
+            });
+
+            console.log(`Assigned issue #${issueNumber} to ${issueCreator}`);
+
             core.exportVariable('BRANCH_NAME', branchName);
             core.exportVariable('BASE_BRANCH', baseBranch);
 

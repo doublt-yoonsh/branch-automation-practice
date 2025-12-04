@@ -1,0 +1,71 @@
+name: PR Automation
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  sync-from-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync assignees and labels from linked issue
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prBody = context.payload.pull_request.body || '';
+            const prTitle = context.payload.pull_request.title || '';
+            const sourceBranch = context.payload.pull_request.head.ref;
+
+            // Find linked issue number
+            const issueMatches = [
+              ...prBody.matchAll(/(?:closes|fixes|resolves|close|fix|resolve)\s+#(\d+)/gi),
+              ...prTitle.matchAll(/\[#(\d+)\]/gi),
+              ...sourceBranch.matchAll(/(?:feat|hotfix|config)\/(\d+)/gi)
+            ];
+
+            const issueNumbers = [...new Set(issueMatches.map(match => parseInt(match[1])))];
+
+            if (issueNumbers.length === 0) {
+              console.log('No linked issue found');
+              return;
+            }
+
+            const issueNumber = issueNumbers[0];
+            console.log(`Found linked issue: #${issueNumber}`);
+
+            // Get issue details
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+
+            // Sync assignees
+            if (issue.assignees && issue.assignees.length > 0) {
+              const assignees = issue.assignees.map(a => a.login);
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                assignees: assignees
+              });
+              console.log(`Synced assignees: ${assignees.join(', ')}`);
+            }
+
+            // Sync labels
+            if (issue.labels && issue.labels.length > 0) {
+              const labels = issue.labels.map(l => l.name);
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                labels: labels
+              });
+              console.log(`Synced labels: ${labels.join(', ')}`);
+            }

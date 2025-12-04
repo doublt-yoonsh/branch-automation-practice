@@ -119,29 +119,29 @@ jobs:
             const userList = notifyUsers.split(',').map(u => u.trim());
             const mentions = userList.map(u => `@${u}`).join(' ');
 
-            const issueBody = `## 백머지 충돌 발생
-
-| 항목 | 내용 |
-|------|------|
-| PR | #${prNumber} ${prTitle} |
-| 작성자 | @${prAuthor} |
-| 소스 | \`main\` |
-| 타겟 | \`dev\` |
-
-### 알림 대상
-${mentions}
-
-### 해결 방법
-\`\`\`bash
-git checkout dev
-git pull origin dev
-git merge origin/main
-# 충돌 해결 후
-git push origin dev
-\`\`\`
-
-### 관련 PR
-${prUrl}`;
+            const issueBody = [
+              '## 백머지 충돌 발생',
+              '',
+              '- **PR**: #' + prNumber + ' ' + prTitle,
+              '- **작성자**: @' + prAuthor,
+              '- **소스**: `main`',
+              '- **타겟**: `dev`',
+              '',
+              '### 알림 대상',
+              mentions,
+              '',
+              '### 해결 방법',
+              '```bash',
+              'git checkout dev',
+              'git pull origin dev',
+              'git merge origin/main',
+              '# 충돌 해결 후',
+              'git push origin dev',
+              '```',
+              '',
+              '### 관련 PR',
+              prUrl
+            ].join('\n');
 
             await github.rest.issues.create({
               owner: context.repo.owner,

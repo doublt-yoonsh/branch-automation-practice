@@ -101,19 +101,55 @@ jobs:
             echo "status=conflict" >> $GITHUB_OUTPUT
           fi
 
-      - name: Comment on conflict
+      - name: Create issue on conflict
         if: steps.backmerge.outputs.status == 'conflict'
         uses: actions/github-script@v6
+        env:
+          NOTIFY_USERS: ${{ vars.BACKMERGE_NOTIFY_USERS }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prNumber = context.payload.pull_request.number;
+            const prTitle = context.payload.pull_request.title;
+            const prAuthor = context.payload.pull_request.user.login;
+            const prUrl = context.payload.pull_request.html_url;
 
-            await github.rest.issues.createComment({
+            // 알림 대상 사용자 목록
+            const notifyUsers = process.env.NOTIFY_USERS || prAuthor;
+            const userList = notifyUsers.split(',').map(u => u.trim());
+            const mentions = userList.map(u => `@${u}`).join(' ');
+
+            const issueBody = `## 백머지 충돌 발생
+
+| 항목 | 내용 |
+|------|------|
+| PR | #${prNumber} ${prTitle} |
+| 작성자 | @${prAuthor} |
+| 소스 | \`main\` |
+| 타겟 | \`dev\` |
+
+### 알림 대상
+${mentions}
+
+### 해결 방법
+\`\`\`bash
+git checkout dev
+git pull origin dev
+git merge origin/main
+# 충돌 해결 후
+git push origin dev
+\`\`\`
+
+### 관련 PR
+${prUrl}`;
+
+            await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: prNumber,
-              body: `⚠️ **백머지 실패**: \`main\` → \`dev\` 백머지 중 충돌이 발생했습니다.\n\n수동으로 백머지를 진행해주세요:\n\`\`\`bash\ngit checkout dev\ngit pull origin dev\ngit merge origin/main\n# 충돌 해결 후\ngit push origin dev\n\`\`\``
+              title: `[Backmerge] main → dev 충돌 해결 필요 (PR #${prNumber})`,
+              body: issueBody,
+              assignees: userList,
+              labels: ['backmerge']
             });
 
       - name: Comment on success

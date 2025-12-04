@@ -1,0 +1,50 @@
+name: "🚨 긴급 수정 (Hotfix)"
+description: "프로덕션 긴급 버그 수정"
+labels: ["hotfix"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚠️ Hotfix 안내
+        - 프로덕션에서 발생한 긴급 버그에만 사용해주세요.
+        - `main` 브랜치에서 `hotfix/{이슈번호}` 브랜치가 생성됩니다.
+        - 머지 후 반드시 `main` → `dev` 백머지가 필요합니다.
+
+        ## 이슈 제목 형식
+        `hotfix(영역): 간결한 설명` (예: `hotfix(결제): 결제 실패 긴급 수정`)
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 긴급 버그 설명
+      description: 발생한 긴급 버그에 대해 상세히 설명해주세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: 영향 범위
+      description: 이 버그가 사용자에게 미치는 영향을 설명해주세요.
+      placeholder: |
+        - 영향받는 사용자 수
+        - 영향받는 기능
+        - 비즈니스 임팩트
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 재현 방법
+      description: 버그를 재현할 수 있는 단계를 작성해주세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 예상 해결 방안
+      description: 현재 파악된 해결 방안이 있다면 작성해주세요.
+    validations:
+      required: false

@@ -1,0 +1,139 @@
+name: Create Branch from Issue
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  create-branch:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine branch info
+        id: branch-info
+        run: |
+          LABEL="${{ github.event.label.name }}"
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+
+          case "$LABEL" in
+            feat|fix)
+              echo "branch_name=feat/${ISSUE_NUMBER}" >> $GITHUB_OUTPUT
+              echo "base_branch=dev" >> $GITHUB_OUTPUT
+              echo "target_branch=dev" >> $GITHUB_OUTPUT
+              echo "should_create=true" >> $GITHUB_OUTPUT
+              ;;
+            hotfix)
+              echo "branch_name=hotfix/${ISSUE_NUMBER}" >> $GITHUB_OUTPUT
+              echo "base_branch=main" >> $GITHUB_OUTPUT
+              echo "target_branch=main" >> $GITHUB_OUTPUT
+              echo "should_create=true" >> $GITHUB_OUTPUT
+              ;;
+            ci|cd)
+              echo "branch_name=config/${ISSUE_NUMBER}" >> $GITHUB_OUTPUT
+              echo "base_branch=main" >> $GITHUB_OUTPUT
+              echo "target_branch=main" >> $GITHUB_OUTPUT
+              echo "should_create=true" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "should_create=false" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Check if branch already exists
+        if: steps.branch-info.outputs.should_create == 'true'
+        id: check-branch
+        run: |
+          BRANCH_NAME="${{ steps.branch-info.outputs.branch_name }}"
+          if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create branch
+        if: steps.branch-info.outputs.should_create == 'true' && steps.check-branch.outputs.exists == 'false'
+        run: |
+          BRANCH_NAME="${{ steps.branch-info.outputs.branch_name }}"
+          BASE_BRANCH="${{ steps.branch-info.outputs.base_branch }}"
+
+          git checkout "$BASE_BRANCH"
+          git checkout -b "$BRANCH_NAME"
+          git push origin "$BRANCH_NAME"
+
+      - name: Generate PR URL
+        if: steps.branch-info.outputs.should_create == 'true' && steps.check-branch.outputs.exists == 'false'
+        id: pr-url
+        run: |
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+          ISSUE_TITLE="${{ github.event.issue.title }}"
+          BRANCH_NAME="${{ steps.branch-info.outputs.branch_name }}"
+          TARGET_BRANCH="${{ steps.branch-info.outputs.target_branch }}"
+          REPO="${{ github.repository }}"
+
+          # URL encode the title and body
+          ENCODED_TITLE=$(echo "$ISSUE_TITLE" | sed 's/ /%20/g' | sed 's/#/%23/g' | sed 's/:/%3A/g')
+          PR_BODY="Closes%20%23${ISSUE_NUMBER}"
+
+          PR_URL="https://github.com/${REPO}/compare/${TARGET_BRANCH}...${BRANCH_NAME}?expand=1&title=${ENCODED_TITLE}&body=${PR_BODY}"
+
+          echo "pr_url=${PR_URL}" >> $GITHUB_OUTPUT
+
+      - name: Comment on issue (branch created)
+        if: steps.branch-info.outputs.should_create == 'true' && steps.check-branch.outputs.exists == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branchName = '${{ steps.branch-info.outputs.branch_name }}';
+            const baseBranch = '${{ steps.branch-info.outputs.base_branch }}';
+            const targetBranch = '${{ steps.branch-info.outputs.target_branch }}';
+            const prUrl = '${{ steps.pr-url.outputs.pr_url }}';
+            const issueNumber = context.issue.number;
+            const actor = context.actor;
+
+            const needsBackmerge = targetBranch === 'main';
+            const backmergeNote = needsBackmerge
+              ? '\n- 머지 후 `main` → `dev` 백머지가 진행됩니다'
+              : '';
+
+            const body = `👋 @${actor}
+
+            ✅ 브랜치 \`${branchName}\`가 \`${baseBranch}\` 브랜치로부터 생성되었습니다!
+
+            ### 📌 다음 단계:
+            1. 브랜치 체크아웃: \`git fetch && git checkout ${branchName}\`
+            2. 작업 완료 후 [PR 생성하기](${prUrl})
+
+            ### 💡 PR 생성 시 자동으로:
+            - 이슈 #${issueNumber}와 연결됩니다
+            - \`${targetBranch}\` 브랜치로 머지됩니다
+            - 머지 시 이슈가 자동으로 닫힙니다
+            - 브랜치가 자동으로 삭제됩니다${backmergeNote}`;
+
+            github.rest.issues.createComment({
+              issue_number: issueNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Comment on issue (branch already exists)
+        if: steps.branch-info.outputs.should_create == 'true' && steps.check-branch.outputs.exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branchName = '${{ steps.branch-info.outputs.branch_name }}';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `⚠️ 브랜치 \`${branchName}\`가 이미 존재합니다.\n\n체크아웃: \`git fetch && git checkout ${branchName}\``
+            });

@@ -2,7 +2,7 @@
 name: 기능 개발 (Feature)
 about: 새로운 화면/기능 개발
 title: 'feat(영역): '
-labels: feat
+labels: "✨ feat"
 assignees: ''
 
 ---

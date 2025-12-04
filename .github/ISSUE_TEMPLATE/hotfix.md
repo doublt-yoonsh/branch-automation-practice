@@ -2,7 +2,7 @@
 name: 긴급 수정 (Hotfix)
 about: 프로덕션 긴급 버그 수정
 title: 'hotfix(영역): '
-labels: hotfix
+labels: "🚑 hotfix"
 assignees: ''
 
 ---

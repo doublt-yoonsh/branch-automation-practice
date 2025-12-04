@@ -2,7 +2,7 @@
 name: 설정 작업 (Config)
 about: CI/CD, 배포 설정 작업
 title: 'ci: '
-labels: ci
+labels: "✅ ci"
 assignees: ''
 
 ---

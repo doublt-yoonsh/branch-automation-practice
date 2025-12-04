@@ -1,0 +1,123 @@
+name: Issue Automation
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  create-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create branch based on labels
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueNumber = context.payload.issue.number;
+            const labels = context.payload.issue.labels.map(label => label.name.toLowerCase());
+            
+            let baseBranch = 'dev';
+            let branchPrefix = 'feat';
+
+            if (labels.some(label => label.includes('hotfix'))) {
+              baseBranch = 'main';
+              branchPrefix = 'hotfix';
+            } else if (labels.some(label => label.includes('ci'))) {
+              baseBranch = 'main';
+              branchPrefix = 'ci';
+            } else if (labels.some(label => label.includes('cd'))) {
+              baseBranch = 'main';
+              branchPrefix = 'cd';
+            } else if (labels.some(label => label.includes('fix'))) {
+              baseBranch = 'dev';
+              branchPrefix = 'fix';
+            } else if (labels.some(label => label.includes('feat'))) {
+              baseBranch = 'dev';
+              branchPrefix = 'feat';
+            }
+            
+            const branchName = `${branchPrefix}/${issueNumber}`;
+            
+            const { data: baseBranchData } = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: baseBranch
+            });
+            
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/heads/${branchName}`,
+              sha: baseBranchData.commit.sha
+            });
+            
+            console.log(`Created branch: ${branchName} from ${baseBranch}`);
+            
+            core.exportVariable('BRANCH_NAME', branchName);
+            core.exportVariable('BASE_BRANCH', baseBranch);
+
+  suggest-pr:
+    runs-on: ubuntu-latest
+    needs: create-branch
+    steps:
+      - name: Comment PR Suggestion
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueNumber = context.payload.issue.number;
+            const issueTitle = context.payload.issue.title;
+            const issueCreator = context.payload.issue.user.login;
+            const labels = context.payload.issue.labels.map(label => label.name.toLowerCase());
+            
+            let baseBranch = 'dev';
+            let branchPrefix = 'feat';
+
+            if (labels.some(label => label.includes('hotfix'))) {
+              baseBranch = 'main';
+              branchPrefix = 'hotfix';
+            } else if (labels.some(label => label.includes('ci'))) {
+              baseBranch = 'main';
+              branchPrefix = 'ci';
+            } else if (labels.some(label => label.includes('cd'))) {
+              baseBranch = 'main';
+              branchPrefix = 'cd';
+            } else if (labels.some(label => label.includes('fix'))) {
+              baseBranch = 'dev';
+              branchPrefix = 'fix';
+            } else if (labels.some(label => label.includes('feat'))) {
+              baseBranch = 'dev';
+              branchPrefix = 'feat';
+            }
+            
+            const branchName = `${branchPrefix}/${issueNumber}`;
+            
+            const prTitle = '[#' + issueNumber + '] ' + issueTitle;
+            const prBody = '## 📋 Related Issue\nCloses #' + issueNumber + '\n\n## 📝 Description\n' + (context.payload.issue.body || 'No description');
+            
+            const prUrl = 'https://github.com/' + context.repo.owner + '/' + context.repo.repo + '/compare/' + baseBranch + '...' + branchName + '?expand=1&title=' + encodeURIComponent(prTitle) + '&body=' + encodeURIComponent(prBody);
+            
+            const commentBody = '👋 @' + issueCreator + '\n\n' +
+              '✅ 브랜치 `' + branchName + '`가 `' + baseBranch + '` 브랜치로부터 생성되었습니다!\n\n' +
+              '📌 **다음 단계:**\n' +
+              '1. 브랜치 체크아웃: `git fetch && git checkout ' + branchName + '`\n' +
+              '2. 작업 완료 후 [**PR 생성하기**](' + prUrl + ')\n\n' +
+              '💡 PR 생성 시 자동으로:\n' +
+              '- 이슈 #' + issueNumber + '와 연결됩니다\n' +
+              '- ' + baseBranch + ' 브랜치로 머지됩니다\n' +
+              '- 머지 시 이슈가 자동으로 닫힙니다\n' +
+              '- 브랜치가 자동으로 삭제됩니다';
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: commentBody
+            });

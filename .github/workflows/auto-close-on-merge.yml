@@ -1,0 +1,71 @@
+name: Auto Close Issue on Merge
+on:
+  pull_request:
+    types: [closed]
+    branches: [main, dev]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  auto-close:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close linked issue and delete branch
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prBody = context.payload.pull_request.body || '';
+            const prTitle = context.payload.pull_request.title || '';
+            const targetBranch = context.payload.pull_request.base.ref;
+            const sourceBranch = context.payload.pull_request.head.ref;
+            
+            const issueMatches = [
+              ...prBody.matchAll(/(?:closes|fixes|resolves|close|fix|resolve)\s+#(\d+)/gi),
+              ...prTitle.matchAll(/\[#(\d+)\]/gi),
+              ...sourceBranch.matchAll(/(?:feat|fix|hotfix|ci|cd)\/(\d+)/gi)
+            ];
+            
+            const issueNumbers = [...new Set(issueMatches.map(match => parseInt(match[1])))];
+            
+            console.log(`Merged PR into ${targetBranch}, found issues: ${issueNumbers.join(', ')}`);
+            
+            for (const issueNumber of issueNumbers) {
+              try {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  state: 'closed'
+                });
+            
+                console.log(`Closed issue #${issueNumber}`);
+            
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: `🎉 이 이슈는 PR #${context.payload.pull_request.number}이 \`${targetBranch}\` 브랜치로 머지되면서 자동으로 닫혔습니다.`
+                });
+            
+              } catch (error) {
+                console.error(`Failed to close issue #${issueNumber}:`, error);
+              }
+            }
+            
+            if (sourceBranch.match(/^(feat|fix|hotfix|ci|cd)\/\d+$/)) {
+              try {
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `heads/${sourceBranch}`
+                });
+            
+                console.log(`Deleted branch: ${sourceBranch}`);
+              } catch (error) {
+                console.error(`Failed to delete branch ${sourceBranch}:`, error);
+              }
+            }

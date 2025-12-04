@@ -26,7 +26,7 @@ jobs:
             const issueMatches = [
               ...prBody.matchAll(/(?:closes|fixes|resolves|close|fix|resolve)\s+#(\d+)/gi),
               ...prTitle.matchAll(/\[#(\d+)\]/gi),
-              ...sourceBranch.matchAll(/(?:feat|fix|hotfix|ci|cd)\/(\d+)/gi)
+              ...sourceBranch.matchAll(/(?:feat|hotfix|config)\/(\d+)/gi)
             ];
             
             const issueNumbers = [...new Set(issueMatches.map(match => parseInt(match[1])))];
@@ -56,7 +56,7 @@ jobs:
               }
             }
             
-            if (sourceBranch.match(/^(feat|fix|hotfix|ci|cd)\/\d+$/)) {
+            if (sourceBranch.match(/^(feat|hotfix|config)\/\d+$/)) {
               try {
                 await github.rest.git.deleteRef({
                   owner: context.repo.owner,
